@@ -1,4 +1,4 @@
-Static compiler for the Pazcal Language - Project for Compilers class 2013-2014 @ ECE NTUA 
+Lexer, parser and semantics for the Pazcal Language - Project for Compilers class 2013-2014 @ ECE NTUA 
 
 Requirements
 ============
