@@ -1,49 +1,119 @@
+/************************************
+	Compilers 2013-2014	
+
+File: scope.h
+Date: 24/6/2015
+Created by:	Athanasios Papoutsidakis	
+	      	Thaleia-Dimitra Doudali
+************************************/
+
 #ifndef _SCOPE_H_
 #define _SCOPE_H_ 1
 
 #include "types.h"
 
+#include <memory>
 #include <unordered_map>
 #include <string>
-#include <list>
+#include <deque>
 
-typedef std::unordered_map<std::string, types_c*> hash_table_t;
+class Scope;
+class LocalScope;
+class GlobalScope;
 
-
-class scope_c
+struct Scope
 {
- public:
+    enum class Owners {
+        None, Scope,
+        If, Switch,
+        For, While, Do,
+        Function, Process
+    };
+    
+    typedef std::deque<std::unique_ptr<Scope>> ChildrenContainer;
 
-  static scope_c global_scope;
-  static scope_c* current_scope;
+    bool is_global() const;
+    bool is_inside(Owners);
 
-  scope_c ();
-  ~scope_c () {}
+    Scope&              parent();
+    ChildrenContainer&  children();
+    unsigned int        nesting_level();
+    Owners              owner() const;
+
+    void set_owner(Owners);
+    
+    void     add(types_c* entry);
+    void     add_child(Scope*);
+    types_c* lookup(const std::string& name);
+    types_c* lookup_all(const std::string& name);
+    types_c* lookup_call_all(const std::string& name);
+    types_c* lookup_call(const std::string& name);
+
+    void print();
+    void print_entries() const;
+
+    static bool are_open();
+    static bool global_exists();
+
+    static Scope&       current();
+    static GlobalScope& global();
+
+    static void open();
+    static void close();
+    // reset();
+
+    void add_builtin(types_c* entry);
+    void set_builtins();
+
+    typedef std::unordered_map<std::string, std::unique_ptr<types_c>> hash_table_t;
+    hash_table_t      hash_table;
 
 
-  void insert (std::string name, types_c *entry);
-  bool lookup_current_scope (std::string name) ;
-  types_c* lookup_curr_scope_ret(std::string name);
-  static scope_c* get_current_scope() { return current_scope; }
-  static void set_current_scope(scope_c* scp) { current_scope = scp; }
-  static scope_c* get_global_scope() { return &global_scope; }
-  scope_c* get_parent_scope() { return parent; }
-  void add_child(scope_c* scp) { children.push_back(scp); }
-  void print_hash_table();
-  void print_scope(scope_c* scp);
-  std::list<scope_c* > get_children() { return children; }
-  void set_nesting_level(int nest_lvl) { nesting_level = nest_lvl; }
-  int get_nesting_level() { return nesting_level; }
+private:
 
-  //clear ();
+    ChildrenContainer _m_children;
+    
+    virtual bool _is_global() const = 0;
+    virtual bool _is_inside(Owners) = 0;
 
- private:
+    virtual Scope&       _parent() = 0;
+    virtual unsigned int _nesting_level() = 0;
+    virtual Owners       _owner() const = 0;
+    
+    virtual void _set_owner(Owners) = 0;
+};
 
-  hash_table_t hash_table;
-  scope_c* parent;
-  int nesting_level;
-  std::list<scope_c *> children;
+struct LocalScope: Scope
+{
+    LocalScope(Scope& parent);
 
+private:
+    Scope* _m_parent;
+    Owners _m_owner = Owners::None;
+    
+    mutable bool _m_nesting_level_is_cached = false;
+    mutable unsigned int _m_nesting_level;
+
+    bool _is_global() const override;
+    bool _is_inside(Owners) override;
+
+    Scope&       _parent() override;
+    unsigned int _nesting_level() override;
+    Owners       _owner() const override;
+    
+    void _set_owner(Owners) override;
+};
+
+class GlobalScope: public Scope
+{
+    bool _is_global() const override;
+    bool _is_inside(Owners) override;
+
+    Scope&       _parent() override;
+    unsigned int _nesting_level() override;
+    Owners       _owner() const override;
+    
+    void _set_owner(Owners) override;
 };
 
 

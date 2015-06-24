@@ -2,27 +2,34 @@
 	Compilers 2013-2014	
 
 File: lexer.l
-Date: 25/5/2014
+Date: 24/6/2015
 Created by: Thaleia-Dimitra Doudali
 		Athanasios Papoutsidakis	
 ************************************/
+
+%top {
+	#include "parser.h"
+	extern "C" int yylex(YYSTYPE*, YYLTYPE*);
+    #define YY_USER_ACTION { step(yylloc);\
+                             yylloc->last_column += yyleng; }
+}
 
 %{
 //#define _POSIX_C_SOURCE 1
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include "parser.h"
+#include "globals.h"
 #define T_eof		0
 
-void yyerror(const char * msg);
-extern int lineno;
-int lineno = 1;
+static void step(YYLTYPE*);
+static void newline(YYLTYPE*);
+
 %}
 
 %option noinput
 %option nounput
+%option bison-bridge bison-locations
 %x COMMENT
 
 %%
@@ -77,39 +84,40 @@ int lineno = 1;
 "%="        {return T_eqmod;}
 
 
-[a-zA-Z][_a-zA-Z0-9]*								{
-														yylval.s = (char *)malloc(strlen(yytext) +1);
-														strcpy(yylval.s, yytext);
+[a-zA-Z][_a-zA-Z0-9]*               {   char* str = new char[yyleng + 1];
+                                        strcpy(str, yytext);
+                                        yylval->s = str;
 														return T_ID;
 													} 
 [1-9][0-9]*|0										{	
-														yylval.i = atoi(yytext);
+														yylval->i = atoi(yytext);
 														return T_intConst;
 													}
 [\&\;\.\(\)\:\,\[\]\{\}] 							{return yytext[0];}
 [\>\<\+\-\*\/\%\!\=] 								{return yytext[0];}	
 
 "'"([ !#$%&]|[(-[]|[]-~]|\\n|\\t|\\r|\\0|\\\\|\\\'|\\\")"'"		{	
-																	yylval.c = yytext[1];
+																	yylval->c = yytext[1];
 																	return T_charConst;
 																}
 "\""([ !#$%&]|[(-[]|[]-~]|\\n|\\t|\\r|\\0|\\\\|\\\'|\\\")+"\""	{	
 																	yytext[yyleng-1] = '\0';
-																	yylval.s = (char *)malloc(yyleng);
-																	strcpy(yylval.s, &yytext[1]);
+                                                                    char* str = new char[yyleng];
+                                                                    strcpy(str, &yytext[1]);
+                                                                    yylval->s = str;
 																	return T_stringLiteral;
 																}
 ([1-9][0-9]*|0)\.[0-9]+((e|E)(\+|\-)?[0-9]+)?  					{	
-																	yylval.r = atof(yytext);
+																	yylval->r = atof(yytext);
 																	return T_realConst;
 																}
 
 [ \t\r]+   										{/*ignore white spaces*/}
-\n												{lineno++;}
-"//".*\n								 		{lineno++;}
+\n												{newline(yylloc);}
+"//".*\n								 		{newline(yylloc);}
 "/*"											{BEGIN(COMMENT);}
 <COMMENT>"*/"									{BEGIN(INITIAL);}
-<COMMENT>\n										{lineno++;}
+<COMMENT>\n										{newline(yylloc);}
 <COMMENT>"*"									{/*nothing*/}
 <COMMENT>[^*\n]+								{/*nothing*/}
 
@@ -119,13 +127,13 @@ int lineno = 1;
 
 %%
 
-void ERROR (const char * fmt, ...)
-{
-   va_list ap;
-   va_start(ap, fmt);
-   fprintf(stderr, "Line %d, error: ", lineno);
-   vfprintf(stderr, fmt, ap);
-   fprintf(stderr, "\n");
-   va_end(ap);
-   exit(1);
+static void step(YYLTYPE* locp) {
+    locp->first_line = locp->last_line;
+    locp->first_column = locp->last_column;
+}
+
+static void newline(YYLTYPE* locp) {
+	lineno++;
+	locp->last_column = 1;
+	locp->last_line++;
 }

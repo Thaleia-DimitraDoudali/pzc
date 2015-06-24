@@ -1,50 +1,40 @@
-CC=gcc
 CXX=g++
 
-COMCFLAGS = -Wall -MP -MD
-COMCFLAGS += -O0 -g3
-
-CFLAGS = $(COMCFLAGS) #-std=c99
-
-CXXFLAGS = $(COMCFLAGS) -std=c++11
-
-CFILES = \
-	lexer.c \
-	parser.c \
-	#parser_interface.c \
+CXXFLAGS = -Wall -MP -MD -O0 -g3 -std=c++11
 
 CXXFILES = \
+	enums.cpp\
+	globals.cpp\
+	lexer.cpp \
+	parser.cpp \
 	new_parser_interface.cpp \
 	scope.cpp \
 	types.cpp \
+	options.cpp \
 	error.cpp
-	#parser_constants.cpp \
-	#parser_statements.cpp \
-	#hashtable.cpp \
 
 YFILES = parser.y
 
-SRCS=$(CFILES) $(CXXFILES) $(YFILES)
+SRCS=$(CXXFILES) $(YFILES)
 
-OFILES=$(CFILES:.c=.o) $(CXXFILES:.cpp=.o)
-DEPS=$(CFILES:.c=.d) $(CXXFILES:.cpp=.d)
+OFILES=$(CXXFILES:.cpp=.o)
+DEPS=$(CXXFILES:.cpp=.d)
 
 all: pazcal
 
 TAGS: $(SRCS)
 	etags $(SRCS)
 
-%.o : %.c parser.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
+parser.o: parser.cpp lexer.h
+lexer.o: lexer.cpp parser.h
 %.o : %.cpp parser.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ 
 
-lexer.c: lexer.l
-	flex -s -o $@ $<
+lexer.cpp lexer.h: lexer.l
+	flex -s --outfile=lexer.cpp --header-file=lexer.h $<
 
-parser.c parser.h: parser.y
-	bison -v -d -oparser.c $<
+parser.cpp parser.h: parser.y
+	bison -v -d -oparser.cpp parser.y
 
 pazcal: $(OFILES)
 	$(CXX)  $(CXXFLAGS) $^ -o $@ -lfl
@@ -52,7 +42,7 @@ pazcal: $(OFILES)
 .PHONY: clean distclean
 
 clean:
-	$(RM) lexer.c parser.c parser.h *.o *.output *~ $(DEPS) $(OFILES) TAGS
+	$(RM) lexer.cpp lexer.h parser.cpp parser.h *.o *.output *~ $(DEPS) $(OFILES) TAGS
 
 distclean: clean
 	$(RM) lexer
